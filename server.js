@@ -5,7 +5,7 @@ const ejs=require("ejs")
 const bodyparser=require("body-parser")
 const cookieParser=require("cookie-parser")
 const app=express()
-const bcrypt=require('bcryptjs')
+
 const authRoutes=require("./routes/auth")
 const {authenticate}=require('./middleware/auth')
 

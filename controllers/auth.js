@@ -5,25 +5,28 @@ require("dotenv").config()
 
 exports.Register = async (req, res) => {
     try {
-        const { name, email, password, c_password } = req.body;
+        const { name, email, password } = req.body;
 
-        const existingUser = await User.findOne({ email: email });
+        // Check if the user already exists
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.redirect("/login");
+            return res.status(400).json({ success: false, message: 'User already exists!' });
         }
-        if (password !== c_password) {
-            return res.redirect("/");
-        }
-        // decrypt the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const userData = new User({ name:name, email:email, password:hashedPassword });
-        await userData.save();
 
-        // 
-        res.redirect("/login");
+        // Hash the password
+        const saltRounds = 10; // Recommended salt rounds
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // Create a new user
+        const newUser = new User({ name:name,email:email,password: hashedPassword});
+
+        // Save the user to MongoDB
+        await newUser.save();
+
+        res.redirect("/login")
     } catch (error) {
-        console.error("Error in register:", error);
-        res.status(500).send("An error occurred during registration.");
+        console.error('Error registering user:', error);
+        res.status(500).json({ success: false, message: 'Error registering user!' });
     }
 };
 
@@ -31,50 +34,47 @@ exports.Login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Find user by email
         const user = await User.findOne({ email:email });
         if (!user) {
-            return res.status(404).send('User not found');
+            return res.status(404).json({ Success: "User not found with this email!" });
         }
-
-        // Compare password
+      
         const isMatch = await bcrypt.compare(password, user.password);
-        
-        if (isMatch) {
-            return res.status(401).send('Invalid credentials');
+        if (!isMatch) {
+            return res.status(401).json({ Success: "Invalid credentials!" });
         }
-        // Generate JWT token
-        const token = jwt.sign(
-            { id: user._id, email: user.email }, 
-            process.env.JWT_SECRET, // Use a secure secret
-            { expiresIn: '1d' } // Token valid for 1 day
-        );
-
-        // Set cookie with the token
-        res.cookie('authToken', token, {
-            httpOnly: true,          // Prevent client-side JavaScript from accessing the cookie
-            secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
-            sameSite: 'strict',      // Mitigate CSRF attacks
-            maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
-        });
-
-        // Optional: Add user session details
-        req.session.user = user;
 
        
-        // Redirect to the dashboard
+
+        const token = jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.JWT_SECRET || "fallback_secret",
+            { expiresIn: '1d' }
+        );
+
+        res.cookie('authToken', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000,
+        });
+        
+        // session attempt 
+        req.session.user = user;
         res.redirect("/dashboard");
     } catch (error) {
         console.error("Error in login:", error);
-        res.status(500).send("An error occurred during login.");
+        res.status(500).json({ Error: "An error occurred during login." });
     }
 };
+
 // reset Password
 
 
-exports.Forgotpassword= async (req, res) => {
+exports.Forgotpassword = async (req, res) => {
     try {
-        const { email, password, c_password } = req.body;
+        const { email, password, c_password } = req.body
+
         // Find the user by email
         const user = await User.findOne({ email:email });
         if (!user) {
@@ -89,15 +89,19 @@ exports.Forgotpassword= async (req, res) => {
         // Hash the new password
         const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
 
-        // Update user password and save
-        user.password = hashedPassword; // Save the hashed password
+        // // Update user password and save
+        user.password = hashedPassword;
+       
         await user.save();
-        res.redirect('/login')
+
+        // Redirect to login page
+        res.redirect('/login');
     } catch (error) {
-        console.error("Error in /forgetpass route:", error);
-        res.status(500).json({ Error: "An error occurred. Please try again later." });
+        console.error("Error in /forgotpassword route:", error);
+        res.status(500).json({ Error: error.message || "An error occurred. Please try again later." });
     }
-}
+};
+
 
 // logout module
 exports.Logout = (req, res) => {
