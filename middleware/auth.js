@@ -16,7 +16,6 @@ exports.authenticate = (req, res, next) => {
         
         // Prevent caching of authenticated routes
         res.setHeader("Cache-Control", "no-store");
-        
         next();
     } catch (error) {
         console.error("Authentication error:", error);
