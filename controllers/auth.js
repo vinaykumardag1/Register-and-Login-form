@@ -10,7 +10,7 @@ exports.Register = async (req, res) => {
         // Check if the user already exists
         const existingUser = await User.findOne({ email:email });
         if (existingUser) {
-            return res.status(400).json({ success: false, message: 'User already exists!' });
+            return res.status(400).render({  message: 'User already exists!' });
         }
 
         // Hash the password
@@ -69,8 +69,6 @@ exports.Login = async (req, res) => {
 };
 
 // reset Password
-
-
 exports.Forgotpassword = async (req, res) => {
     try {
         const { email, password, c_password } = req.body
